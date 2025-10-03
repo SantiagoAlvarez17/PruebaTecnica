@@ -1,0 +1,84 @@
+CREATE DATABASE SistemaVotaciones;
+GO
+
+USE SistemaVotaciones;
+GO
+
+-- Tabla de Votantes
+CREATE TABLE Voters (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(120) NOT NULL,
+    email NVARCHAR(200) NOT NULL UNIQUE,
+    has_voted BIT NOT NULL DEFAULT 0
+);
+
+-- Tabla de Candidatos
+CREATE TABLE Candidates (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(120) NOT NULL,
+    party NVARCHAR(120) NULL,
+    votes INT NOT NULL DEFAULT 0
+);
+
+-- Tabla de Votos
+CREATE TABLE Votes (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    voter_id INT NOT NULL UNIQUE,  -- Un votante solo puede votar una vez
+    candidate_id INT NOT NULL,
+    CONSTRAINT FK_Votes_Voter FOREIGN KEY (voter_id) REFERENCES Voters(id) ON DELETE CASCADE,
+    CONSTRAINT FK_Votes_Candidate FOREIGN KEY (candidate_id) REFERENCES Candidates(id) ON DELETE CASCADE
+);
+
+USE master
+Go
+xp_readerrorlog 0, 1, N'Server is listening on'
+GO
+
+SELECT * FROM Votes;
+
+/*Listar cada votante con el candidato al que vota*/
+SELECT v.name AS VoterName,
+       c.name AS CandidateName,
+       c.party AS CandidateParty
+FROM Votes vt
+JOIN Voters v ON vt.voter_id = v.id
+JOIN Candidates c ON vt.candidate_id = c.id;
+
+
+/* Contar cuantos votos recibia cada candidato*/
+SELECT c.name AS CandidateName,
+       c.party AS Party,
+       COUNT(vt.id) AS TotalVotes
+FROM Candidates c
+LEFT JOIN Votes vt ON c.id = vt.candidate_id
+GROUP BY c.name, c.party
+ORDER BY TotalVotes DESC;
+
+
+/*Verificar participacion de votantes*/
+SELECT v.name AS VoterName,
+       v.email,
+       CASE WHEN v.has_voted = 1 THEN 'Si voto' ELSE 'No voto' END AS Participation
+FROM Voters v;
+
+/*Relacion de votos por partido*/
+
+SELECT c.party AS Party,
+       COUNT(vt.id) AS VotesByParty
+FROM Candidates c
+LEFT JOIN Votes vt ON c.id = vt.candidate_id
+GROUP BY c.party
+ORDER BY VotesByParty DESC;
+
+/*Mezcla completa: votante, candidato y total acumulado*/
+SELECT v.name AS VoterName,
+       c.name AS CandidateName,
+       c.party AS Party,
+       (SELECT COUNT(*) 
+        FROM Votes vt2 
+        WHERE vt2.candidate_id = c.id) AS CandidateTotalVotes
+FROM Votes vt
+JOIN Voters v ON vt.voter_id = v.id
+JOIN Candidates c ON vt.candidate_id = c.id
+ORDER BY CandidateTotalVotes DESC;
+
